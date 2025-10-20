@@ -3,537 +3,312 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>3D Lorenz — Kaos & Kasırga Etkili Simülasyon</title>
+  <title>Kaos Teorisi – Lorenz Simülasyonu</title>
   <style>
-    :root{
-      --ui-bg: rgba(10,10,20,0.75);
-      --accent: #00d4ff;
+    body {
+      margin: 0;
+      background: #000;
+      color: #e6f7ff;
+      font-family: "Segoe UI", sans-serif;
+      display: flex;
+      flex-direction: row;
+      height: 100vh;
+      overflow: hidden;
+      padding: 16px;
+      gap: 16px;
     }
-    html,body{height:100%;margin:0;background:#000;}
-    body{
-      font-family: Inter, "Segoe UI", Roboto, Arial;
-      color:#e6f7ff;
-      overflow:hidden;
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-      padding:18px;
-    }
-
-    /* UI panel */
-    .panel{
-      width:320px;
-      background:var(--ui-bg);
-      padding:14px;
-      border-radius:12px;
-      box-shadow:0 8px 30px rgba(0,0,0,0.6);
-      z-index:10;
+    .panel {
+      width: 300px;
+      background: rgba(15, 15, 30, 0.8);
+      border-radius: 12px;
+      padding: 14px;
       backdrop-filter: blur(6px);
     }
-    h1{margin:0 0 6px;font-size:18px;color:var(--accent)}
-    label{display:block;font-size:13px;margin-top:8px;color:#cfefff}
-    input[type="number"], input[type="range"]{
-      width:100%;
-      margin-top:6px;
-      background:rgba(255,255,255,0.05);
-      color:white;
-      border:1px solid rgba(255,255,255,0.06);
-      padding:6px 8px;border-radius:6px;
+    h1 {
+      font-size: 18px;
+      margin: 0 0 6px;
+      color: #00d4ff;
     }
-    .row{display:flex;gap:8px;align-items:center}
-    .row > *{flex:1}
-    button, .btn{
-      margin-top:12px;
-      padding:10px 12px;
-      background:linear-gradient(180deg,#06b6d4,#0288a7);
-      color:#001;
-      border:none;border-radius:8px;font-weight:700;cursor:pointer;
+    label { display: block; margin-top: 10px; font-size: 13px; }
+    input {
+      width: 100%;
+      margin-top: 4px;
+      background: rgba(255, 255, 255, 0.05);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 5px;
+      border-radius: 5px;
     }
-    .small{font-size:13px;padding:8px;border-radius:6px}
-    .status{margin-top:8px;font-size:13px;color:#a9dfff}
-
-    /* canvas container */
-    #container{
-      flex:1;
-      height:calc(100vh - 36px);
-      border-radius:12px;
-      overflow:hidden;
-      position:relative;
+    button {
+      margin-top: 10px;
+      background: linear-gradient(180deg, #00d4ff, #0288a7);
+      border: none;
+      color: #001;
+      padding: 8px 10px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
     }
-    canvas{display:block}
-
-    /* bottom hint */
-    .hint{
+    #container {
+      flex: 1;
+      position: relative;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    canvas { display: block; }
+    .status {
+      font-size: 13px;
+      color: #a9dfff;
+      margin-top: 8px;
+    }
+    .hint {
       position: absolute;
       left: 18px;
       bottom: 18px;
       color: rgba(255,255,255,0.8);
       font-size: 13px;
       background: rgba(0,0,0,0.25);
-      padding:8px 12px;border-radius:8px;
+      padding: 8px 12px;
+      border-radius: 8px;
       backdrop-filter: blur(4px);
     }
-
   </style>
 </head>
 <body>
-
-  <div class="panel" id="ui">
-    <h1>3D Lorenz — Kaos Deneyimi</h1>
-    <div style="font-size:13px;color:#dff6ff">Kullanıcı parametrelerini değiştir, ardından <strong>Simülasyonu Başlat</strong>e tıkla. Aşırı/kaotik durum tetiklenirse yağmur, şimşek ve gök gürültüsü aktifleşir.</div>
-
+  <div class="panel">
+    <h1>Kaos Teorisi: Lorenz Simülasyonu</h1>
+    <p style="font-size:13px;color:#cdefff">
+      Küçük farkların büyük sonuçlar doğurduğu kaotik sistemi izleyin.
+    </p>
     <label>σ (sigma)
-      <input id="sigma" type="number" step="0.1" value="10">
+      <input id="sigma" type="number" value="10" step="0.1">
     </label>
-
     <label>ρ (rho)
-      <input id="rho" type="number" step="0.1" value="28">
+      <input id="rho" type="number" value="28" step="0.1">
     </label>
-
     <label>β (beta)
-      <input id="beta" type="number" step="0.0001" value="2.6667">
+      <input id="beta" type="number" value="2.6667" step="0.0001">
     </label>
-
     <label>Zaman adımı (dt)
-      <input id="dt" type="number" step="0.001" value="0.01">
+      <input id="dt" type="number" value="0.01" step="0.001">
     </label>
-
-    <label>Örnek sayısı
-      <input id="count" type="number" step="100" value="20000">
-    </label>
-
-    <div class="row">
-      <button id="startBtn" class="small">Simülasyonu Başlat</button>
-      <button id="regenBtn" class="small">Yeniden Hesapla</button>
-    </div>
-
-    <div class="row">
-      <button id="stormToggle" class="small">Kasırga Manuel <span id="stormLabel">(Kapalı)</span></button>
-      <button id="micToggle" class="small">Mikrofon: Aç</button>
-    </div>
-
+    <button id="startBtn">Simülasyonu Başlat</button>
+    <button id="stormBtn">Kasırga Manuel</button>
+    <button id="micBtn">Mikrofon: Aç</button>
     <div class="status" id="status">Durum: Bekleniyor</div>
-    <div style="margin-top:10px;font-size:12px;color:#bcdfff">
-      İpucu: ρ değeri ~28 klasik kaotik örnektir. ρ'yi büyük (ör. 60+) yaparsanız "aşırı kaos" tetiklenebilir.
-    </div>
   </div>
 
   <div id="container">
-    <!-- Three.js canvas is injected -->
-    <div class="hint">Fare sürükle: sahneyi döndür. Zoom: fare tekerleği.</div>
+    <div class="hint">Dokun / Tıkla → Ses aktif olur • Mikrofon yüksekse fırtına başlar ⚡</div>
   </div>
 
-  <!-- Three.js as ES module -->
   <script type="module">
     import * as THREE from 'https://unpkg.com/three@0.152.2/build/three.module.js';
     import { OrbitControls } from 'https://unpkg.com/three@0.152.2/examples/jsm/controls/OrbitControls.js';
 
-    // Basic scene setup
     const container = document.getElementById('container');
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000000, 0.0009);
+    scene.fog = new THREE.FogExp2(0x000000, 0.0008);
 
     const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 5000);
     camera.position.set(0, 40, 120);
 
-    const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.shadowMap.enabled = true;
     container.appendChild(renderer.domElement);
 
-    // Controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.12;
 
-    // Lights
     const hemi = new THREE.HemisphereLight(0x88ccff, 0x101020, 0.6);
     scene.add(hemi);
-
     const mainLight = new THREE.DirectionalLight(0xffffff, 0.6);
     mainLight.position.set(50,80,20);
-    mainLight.castShadow = true;
     scene.add(mainLight);
 
-    // ambient glow
-    const ambient = new THREE.AmbientLight(0x222233, 0.6);
-    scene.add(ambient);
-
-    // containers for objects
     let lorenzLine = null;
-    let rainSystem = null;
-    let rainGeometry = null;
-
-    // audio context & flags
+    let rainParticles = null;
     let audioCtx = null;
-    let rainSource = null;
-    let thunderPlaying = false;
+    let rainSound = null;
     let micAnalyser = null;
-    let micEnabled = false;
     let micStream = null;
+    let thunderActive = false;
+    let stormActive = false;
 
-    // UI references
     const sigmaIn = document.getElementById('sigma');
-    const rhoIn   = document.getElementById('rho');
-    const betaIn  = document.getElementById('beta');
-    const dtIn    = document.getElementById('dt');
-    const countIn = document.getElementById('count');
-    const startBtn = document.getElementById('startBtn');
-    const regenBtn = document.getElementById('regenBtn');
-    const stormToggle = document.getElementById('stormToggle');
-    const stormLabel = document.getElementById('stormLabel');
-    const micToggle = document.getElementById('micToggle');
+    const rhoIn = document.getElementById('rho');
+    const betaIn = document.getElementById('beta');
+    const dtIn = document.getElementById('dt');
     const status = document.getElementById('status');
 
-    let points = [];
-    let positionAttr = null;
-    let colorAttr = null;
-    let lineMaterial = null;
-    let particleMaterial = null;
-    let tIndex = 0;
-    let rotatingAngle = 0;
-    let isStormForced = false;
+    function ensureAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    window.addEventListener('click', ensureAudio);
+    window.addEventListener('touchstart', ensureAudio);
 
-    // scale and parameters
-    const scale = 1.6;
-    let pointCount = parseInt(countIn.value,10);
-
-    // Helper: generate Lorenz points
-    function computeLorenz(sigma, rho, beta, dt, N){
-      let x = Math.random()*0.1 + 0.1, y=0, z=0;
-      const pts = new Float32Array(N*3);
-      const cols = new Float32Array(N*3);
-      for(let i=0, j=0;i<N;i++, j+=3){
-        const dx = sigma*(y-x);
-        const dy = x*(rho - z) - y;
-        const dz = x*y - beta*z;
-        x += dx*dt; y += dy*dt; z += dz*dt;
-        pts[j]   = x * scale;
-        pts[j+1] = y * scale;
-        pts[j+2] = z * scale;
-
-        // color mapping by index -> hue gradient
-        const hue = (i / N) * 360;
-        const color = new THREE.Color(`hsl(${hue},100%,60%)`);
+    function computeLorenz(sigma, rho, beta, dt, N = 20000) {
+      let x = 0.1, y = 0, z = 0;
+      const pts = new Float32Array(N * 3);
+      const cols = new Float32Array(N * 3);
+      for (let i = 0, j = 0; i < N; i++, j += 3) {
+        const dx = sigma * (y - x);
+        const dy = x * (rho - z) - y;
+        const dz = x * y - beta * z;
+        x += dx * dt; y += dy * dt; z += dz * dt;
+        pts[j] = x; pts[j+1] = y; pts[j+2] = z;
+        const color = new THREE.Color(`hsl(${(i / N) * 360}, 100%, 60%)`);
         cols[j] = color.r; cols[j+1] = color.g; cols[j+2] = color.b;
       }
-      return {pts, cols};
+      return { pts, cols };
     }
 
-    // Build/replace Lorenz line object (as dynamic Points + line)
-    function buildLorenzBuffer(ptsArr, colsArr){
-      if(lorenzLine){ scene.remove(lorenzLine); lorenzLine.geometry.dispose(); }
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.BufferAttribute(ptsArr, 3));
-      geometry.setAttribute('color', new THREE.BufferAttribute(colsArr, 3));
-      // create line with vertex colors
-      lineMaterial = new THREE.LineBasicMaterial({ vertexColors:true, transparent:true, linewidth:2 });
-      const line = new THREE.Line(geometry, lineMaterial);
-      scene.add(line);
-      lorenzLine = line;
-
-      // small glowing particles along the curve (Points)
-      if(particleMaterial) particleMaterial.dispose();
-      particleMaterial = new THREE.PointsMaterial({ size:1.6, vertexColors:true, transparent:true, opacity:0.95 });
-      const pointsMesh = new THREE.Points(geometry.clone(), particleMaterial);
-      pointsMesh.renderOrder = 1;
-      scene.add(pointsMesh);
+    function drawLorenz(sigma, rho, beta, dt) {
+      const { pts, cols } = computeLorenz(sigma, rho, beta, dt);
+      if (lorenzLine) scene.remove(lorenzLine);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+      const mat = new THREE.LineBasicMaterial({ vertexColors: true });
+      lorenzLine = new THREE.Line(geo, mat);
+      scene.add(lorenzLine);
     }
 
-    // Rain particle system (when storm active)
-    function createRain(){
-      if(rainSystem) { scene.remove(rainSystem); rainGeometry.dispose(); }
-      const rainCount = 6000;
-      rainGeometry = new THREE.BufferGeometry();
-      const positions = new Float32Array(rainCount*3);
-      const velocities = new Float32Array(rainCount);
-      for(let i=0;i<rainCount;i++){
-        positions[3*i] = (Math.random()-0.5) * 400;
-        positions[3*i+1] = Math.random() * 300 + 50;
-        positions[3*i+2] = (Math.random()-0.5) * 400;
-        velocities[i] = 0.6 + Math.random()*1.8;
+    function createRain() {
+      const count = 5000;
+      const pos = new Float32Array(count * 3);
+      for (let i = 0; i < count; i++) {
+        pos[i*3] = (Math.random() - 0.5) * 400;
+        pos[i*3+1] = Math.random() * 300;
+        pos[i*3+2] = (Math.random() - 0.5) * 400;
       }
-      rainGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-      rainGeometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
-      const rainMat = new THREE.PointsMaterial({ color:0xbfdfff, size:1.8, transparent:true, opacity:0.8 });
-      rainSystem = new THREE.Points(rainGeometry, rainMat);
-      scene.add(rainSystem);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      const mat = new THREE.PointsMaterial({ color: 0x9ddfff, size: 1.8, transparent: true });
+      rainParticles = new THREE.Points(geo, mat);
+      scene.add(rainParticles);
     }
 
-    // Update rain simulation per frame
-    function stepRain(){
-      if(!rainSystem) return;
-      const pos = rainGeometry.attributes.position.array;
-      const vel = rainGeometry.attributes.velocity.array;
-      for(let i=0;i<pos.length/3;i++){
-        pos[3*i+1] -= vel[i] * 6; // fall speed
-        pos[3*i]   += (Math.random()-0.5)*0.8; // slight drift x
-        pos[3*i+2]   += (Math.random()-0.5)*0.8; // slight drift z
-        if(pos[3*i+1] < -50){
-          pos[3*i+1] = Math.random()*300 + 100;
-          pos[3*i] = (Math.random()-0.5) * 400;
-          pos[3*i+2] = (Math.random()-0.5) * 400;
-        }
+    function updateRain() {
+      if (!rainParticles) return;
+      const pos = rainParticles.geometry.attributes.position.array;
+      for (let i = 0; i < pos.length; i += 3) {
+        pos[i+1] -= 6;
+        if (pos[i+1] < -50) pos[i+1] = 250;
       }
-      rainGeometry.attributes.position.needsUpdate = true;
+      rainParticles.geometry.attributes.position.needsUpdate = true;
     }
 
-    // Audio: procedural rain noise & thunder generator
-    function ensureAudio(){
-      if(!audioCtx){
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-    }
-
-    function startRainSound(){
+    function playRainSound() {
       ensureAudio();
-      // white noise -> bandpass to sound like rain
       const bufferSize = 2 * audioCtx.sampleRate;
       const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
       const output = noiseBuffer.getChannelData(0);
-      for(let i=0;i<bufferSize;i++){
-        output[i] = (Math.random() * 2 - 1) * 0.2;
-      }
+      for (let i = 0; i < bufferSize; i++) output[i] = (Math.random() * 2 - 1) * 0.2;
       const noiseSource = audioCtx.createBufferSource();
       noiseSource.buffer = noiseBuffer;
       noiseSource.loop = true;
-
-      const bp = audioCtx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.frequency.value = 1000;
-      bp.Q.value = 0.8;
-
-      const gainNode = audioCtx.createGain();
-      gainNode.gain.value = 0.0; // start muted, ramp up on storm
-
-      noiseSource.connect(bp);
-      bp.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1000;
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0.3;
+      noiseSource.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioCtx.destination);
       noiseSource.start();
-
-      rainSource = {noiseSource, gainNode, bp};
+      rainSound = noiseSource;
     }
 
-    function setRainVolume(v){
-      if(rainSource) rainSource.gainNode.gain.linearRampToValueAtTime(v, audioCtx.currentTime + 0.2);
-    }
-
-    // Thunder: low-frequency rumble + sharp crack (sine sweep + noise)
-    function playThunder(){
-      if(!audioCtx) ensureAudio();
-      if(thunderPlaying) return;
-      thunderPlaying = true;
-
-      // long rumble
-      const rumble = audioCtx.createBufferSource();
+    function playThunder() {
+      if (thunderActive) return;
+      ensureAudio();
+      thunderActive = true;
       const len = audioCtx.sampleRate * 2.2;
       const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
       const d = buf.getChannelData(0);
-      for(let i=0;i<len;i++){
-        // decaying low frequency noise
-        d[i] = (Math.random()*2-1) * Math.exp(-i/ (audioCtx.sampleRate*1.2) ) * 0.4;
-      }
+      for (let i=0; i<len; i++) d[i] = (Math.random()*2-1)*Math.exp(-i/(audioCtx.sampleRate*1.2))*0.4;
+      const rumble = audioCtx.createBufferSource();
       rumble.buffer = buf;
-      const lowpass = audioCtx.createBiquadFilter();
-      lowpass.type = 'lowpass';
-      lowpass.frequency.value = 800;
-      rumble.connect(lowpass);
-
-      // sharp crack
-      const osc = audioCtx.createOscillator();
-      const oscGain = audioCtx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(100, audioCtx.currentTime);
-      oscGain.gain.setValueAtTime(0, audioCtx.currentTime);
-      osc.connect(oscGain);
-      oscGain.connect(lowpass);
-
-      // destination
-      lowpass.connect(audioCtx.destination);
-
+      const lp = audioCtx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 800;
+      rumble.connect(lp);
+      lp.connect(audioCtx.destination);
       rumble.start();
-      osc.start();
-      // envelope for crack
-      oscGain.gain.linearRampToValueAtTime(0.8, audioCtx.currentTime + 0.01);
-      oscGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
-      // stop after short time
-      osc.stop(audioCtx.currentTime + 0.36);
-
-      // stop rumble a bit later
-      rumble.stop(audioCtx.currentTime + 2.1);
-
-      // reset flag after sound ended
-      setTimeout(()=> thunderPlaying = false, 2400);
+      flashLightning();
+      setTimeout(()=> thunderActive=false, 2500);
     }
 
-    // Storm trigger (visual + audio)
-    function triggerStorm(){
-      if(!rainSystem) createRain();
-      setRainVolume(0.35);
-      // occasional lightning flashes and thunder
-      let flashes = 0;
-      const flashTimer = setInterval(()=> {
-        // light flash: increase directional light intensity briefly
-        mainLight.intensity = 6 + Math.random()*6;
-        // small ambient flash
-        ambient.intensity = 0.9 + Math.random()*0.9;
-        // random thunder after short delay
-        setTimeout(()=> playThunder(), 120 + Math.random()*1200);
-        flashes++;
-        if(flashes > 20 || !isStormForced) {
-          // slowly restore and clear if user turned off
-          setTimeout(()=> {
-            mainLight.intensity = 0.6;
-            ambient.intensity = 0.6;
-          }, 300);
-          if(!isStormForced) {
-            setRainVolume(0.0);
-            clearInterval(flashTimer);
-          }
-        }
-      }, 800 + Math.random()*1200);
+    function flashLightning() {
+      mainLight.intensity = 5 + Math.random()*5;
+      container.style.backgroundColor = 'rgba(255,255,255,0.15)';
+      setTimeout(()=>{
+        mainLight.intensity = 0.6;
+        container.style.backgroundColor = 'transparent';
+      }, 200 + Math.random()*300);
     }
 
-    // UI actions
-    startBtn.addEventListener('click', async ()=>{
-      // ensure audio context resumed
+    function activateStorm() {
+      if (!stormActive) {
+        playRainSound();
+        createRain();
+        stormActive = true;
+        status.textContent = "Durum: Fırtına etkin (mikrofonla tetiklenebilir)";
+      }
+    }
+
+    async function enableMic() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        micStream = stream;
+        ensureAudio();
+        const source = audioCtx.createMediaStreamSource(stream);
+        micAnalyser = audioCtx.createAnalyser();
+        source.connect(micAnalyser);
+        micAnalyser.fftSize = 256;
+        status.textContent = "Durum: Mikrofon açık (yüksek ses = fırtına)";
+      } catch (e) {
+        status.textContent = "Mikrofon erişimi reddedildi";
+      }
+    }
+
+    document.getElementById('startBtn').addEventListener('click', ()=>{
       ensureAudio();
-      if(audioCtx.state === 'suspended'){ await audioCtx.resume(); }
-      status.textContent = 'Durum: Simülasyon çalışıyor';
-      pointCount = Math.max(2000, parseInt(countIn.value,10));
-      generateAndBuild();
-      if(!rainSource) startRainSound();
+      drawLorenz(parseFloat(sigmaIn.value), parseFloat(rhoIn.value), parseFloat(betaIn.value), parseFloat(dtIn.value));
+      status.textContent = "Durum: Simülasyon çalışıyor";
     });
 
-    regenBtn.addEventListener('click', ()=>{
-      pointCount = Math.max(2000, parseInt(countIn.value,10));
-      generateAndBuild();
-    });
+    document.getElementById('stormBtn').addEventListener('click', activateStorm);
+    document.getElementById('micBtn').addEventListener('click', enableMic);
 
-    stormToggle.addEventListener('click', ()=>{
-      isStormForced = !isStormForced;
-      stormLabel.textContent = isStormForced ? '(Açık)' : '(Kapalı)';
-      if(isStormForced){
-        status.textContent = 'Durum: Kasırga manuel olarak etkinleştirildi';
-        triggerStorm();
-      } else {
-        status.textContent = 'Durum: Kasırga kapatıldı';
-        setRainVolume(0.0);
-      }
-    });
-
-    micToggle.addEventListener('click', async ()=>{
-      if(micEnabled){
-        // turn off mic
-        micEnabled = false;
-        micToggle.textContent = 'Mikrofon: Aç';
-        if(micStream){
-          micStream.getTracks().forEach(t=>t.stop());
-          micStream = null;
-        }
-        micAnalyser = null;
-      } else {
-        try{
-          const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-          micStream = stream;
-          ensureAudio();
-          const source = audioCtx.createMediaStreamSource(stream);
-          micAnalyser = audioCtx.createAnalyser();
-          micAnalyser.fftSize = 256;
-          source.connect(micAnalyser);
-          micEnabled = true;
-          micToggle.textContent = 'Mikrofon: Açık';
-          status.textContent = 'Durum: Mikrofon bağlı (ses yoğunluğu kasırga tetiklemesini etkiler)';
-        }catch(e){
-          console.warn('Mic error', e);
-          status.textContent = 'Durum: Mikrofon erişimi reddedildi';
-        }
-      }
-    });
-
-    // compute and build into scene
-    function generateAndBuild(){
-      const sigma = parseFloat(sigmaIn.value) || 10;
-      const rho   = parseFloat(rhoIn.value) || 28;
-      const beta  = parseFloat(betaIn.value) || 2.6667;
-      const dt    = parseFloat(dtIn.value) || 0.01;
-      // If rho is very large -> auto trigger storm
-      const N = pointCount;
-      const {pts, cols} = computeLorenz(sigma, rho, beta, dt, N);
-      buildLorenzBuffer(pts, cols);
-      // if parameters exceed threshold auto trigger storm
-      if(rho > 50 || sigma > 40 || beta > 10){
-        isStormForced = true;
-        stormLabel.textContent = '(Açık)';
-        triggerStorm();
-      } else {
-        // if microfon shows loudness, we may dynamically trigger; handled in loop
-      }
-    }
-
-    // animation loop
-    function animate(){
+    function animate() {
       requestAnimationFrame(animate);
+      if (lorenzLine) lorenzLine.rotation.y += 0.002;
+      if (rainParticles && stormActive) updateRain();
       controls.update();
 
-      // subtle rotation of the entire group (rotate camera basically)
-      rotatingAngle += 0.0012;
-      if(lorenzLine){
-        lorenzLine.rotation.y = rotatingAngle;
-        // its Points sibling (rendered separately) also rotates
-        lorenzLine.children?.forEach?.(()=>{}); // no-op to keep structural parity
-      }
-
-      // if storm is forced, bring rain and occasionally flash
-      if(isStormForced){
-        if(!rainSystem) createRain();
-        stepRain();
-        // drive rain volume to moderate
-        setRainVolume(0.35);
-      } else {
-        // if mic loudness is high -> dynamic storm
-        if(micAnalyser){
-          const data = new Uint8Array(micAnalyser.frequencyBinCount);
-          micAnalyser.getByteFrequencyData(data);
-          let sum=0;
-          for(let i=0;i<data.length;i++) sum += data[i];
-          const avg = sum / data.length;
-          if(avg > 120){ // threshold for loud environment -> trigger storm briefly
-            isStormForced = true;
-            stormLabel.textContent = '(Açık)';
-            triggerStorm();
-            setTimeout(()=>{ isStormForced = false; stormLabel.textContent='(Kapalı)'; }, 5000);
-          }
+      if (micAnalyser && !thunderActive) {
+        const data = new Uint8Array(micAnalyser.frequencyBinCount);
+        micAnalyser.getByteFrequencyData(data);
+        const avg = data.reduce((a,b)=>a+b,0)/data.length;
+        if (avg > 120) {
+          activateStorm();
+          playThunder();
         }
       }
 
       renderer.render(scene, camera);
     }
+    animate();
 
-    // handle resize
     window.addEventListener('resize', ()=>{
       camera.aspect = container.clientWidth / container.clientHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(container.clientWidth, container.clientHeight);
     });
-
-    // initial default build
-    generateAndBuild();
-    animate();
-
-    // small UX: double click to toggle fullscreen
-    container.addEventListener('dblclick', ()=> {
-      if(!document.fullscreenElement) container.requestFullscreen().catch(()=>{});
-      else document.exitFullscreen();
-    });
-
-    // clean up on unload
-    window.addEventListener('beforeunload', ()=> {
-      if(audioCtx) audioCtx.close();
-      if(micStream) micStream.getTracks().forEach(t=>t.stop());
-    });
-
   </script>
 </body>
 </html>
