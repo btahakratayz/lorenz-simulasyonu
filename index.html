@@ -1,40 +1,40 @@
 <!doctype html>
 <html lang="tr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Kaos Teorisi — Lorenz Simülasyonu</title>
   <style>
-    body {
-      margin: 0; background: #000; color: #e6f7ff;
-      font-family: "Segoe UI", sans-serif;
-      display: flex; flex-direction: row; height: 100vh;
-      overflow: hidden; padding: 16px; gap: 16px;
+    body{
+      margin:0;background:#000;color:#e6f7ff;font-family:"Segoe UI",sans-serif;
+      display:flex;flex-direction:row;height:100vh;overflow:hidden;padding:16px;gap:16px;
     }
-    .panel {
-      width: 300px; background: rgba(15,15,30,0.85);
-      border-radius: 12px; padding: 14px; backdrop-filter: blur(6px);
+    .panel{
+      width:300px;background:rgba(15,15,30,0.85);border-radius:12px;
+      padding:14px;backdrop-filter:blur(6px);
     }
-    h1 { font-size: 18px; margin: 0 0 6px; color: #00d4ff; }
-    label { display: block; margin-top: 10px; font-size: 13px; }
-    input {
-      width: 100%; margin-top: 4px; background: rgba(255,255,255,0.05);
-      color: white; border: 1px solid rgba(255,255,255,0.1);
-      padding: 5px; border-radius: 5px;
+    h1{font-size:18px;margin:0 0 6px;color:#00d4ff}
+    label{display:block;margin-top:10px;font-size:13px}
+    input{
+      width:100%;margin-top:4px;background:rgba(255,255,255,0.05);color:white;
+      border:1px solid rgba(255,255,255,0.1);padding:5px;border-radius:5px;
     }
-    button {
-      margin-top: 10px; background: linear-gradient(180deg,#00d4ff,#0288a7);
-      border: none; color: #001; padding: 8px 10px; font-weight: bold;
-      border-radius: 6px; cursor: pointer; width: 100%;
+    button{
+      margin-top:10px;background:linear-gradient(180deg,#00d4ff,#0288a7);
+      border:none;color:#001;padding:8px 10px;font-weight:bold;border-radius:6px;
+      cursor:pointer;width:100%;
     }
-    #container { flex: 1; position: relative; border-radius: 12px; overflow: hidden; }
-    canvas { display: block; }
-    .status { font-size: 13px; color: #a9dfff; margin-top: 8px; }
-    .hint {
-      position: absolute; left: 18px; bottom: 18px;
-      color: rgba(255,255,255,0.8); font-size: 13px;
-      background: rgba(0,0,0,0.25); padding: 8px 12px;
-      border-radius: 8px; backdrop-filter: blur(4px);
+    .note{
+      font-size:12px;color:#bcdfff;margin-top:10px;line-height:1.4;
+      border-top:1px solid rgba(255,255,255,0.1);padding-top:6px;
+    }
+    #container{flex:1;position:relative;border-radius:12px;overflow:hidden;}
+    canvas{display:block}
+    .status{font-size:13px;color:#a9dfff;margin-top:8px}
+    .hint{
+      position:absolute;left:18px;bottom:18px;color:rgba(255,255,255,0.8);
+      font-size:13px;background:rgba(0,0,0,0.25);padding:8px 12px;
+      border-radius:8px;backdrop-filter:blur(4px);
     }
   </style>
 </head>
@@ -56,160 +56,162 @@
     <label>Zaman adımı (dt)
       <input id="dt" type="number" value="0.01" step="0.001">
     </label>
-    <button id="startBtn">Simülasyonu Başlat</button>
     <button id="micBtn">Mikrofonu Etkinleştir</button>
     <div class="status" id="status">Durum: Bekleniyor</div>
+    <div class="note">
+      🔹 Görüntü için önerilen değerler:<br>
+      σ = 10, ρ = 28, β = 2.6667, dt = 0.01<br>
+      🔹 ρ değerini 50 ve üstü yaparsanız fırtına + gök gürültüsü devreye girer.<br>
+      🔹 Mikrofona izin verirseniz yüksek ses/alkış da fırtına tetikler.<br>
+      🔹 Değerleri değiştirdiğinizde simülasyon otomatik güncellenir.
+    </div>
   </div>
 
   <div id="container">
-    <div class="hint">Dokun veya tıkla → Ses aktif olur • Gürültü = Fırtına ⚡</div>
+    <div class="hint">Dokun / tıkla → Ses aktif olur • Gürültü = Fırtına ⚡</div>
   </div>
 
-  <!-- Three.js klasik import -->
   <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
   <script src="https://unpkg.com/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
-
   <script>
-  let scene, camera, renderer, controls;
-  let lorenzLine = null, rain = null, audioCtx = null;
-  let micAnalyser = null, micStream = null;
-  let thunderActive = false;
-  let stormActive = false;
-  const status = document.getElementById('status');
+    let scene,camera,renderer,controls,lorenzLine=null,audioCtx=null,micAnalyser=null;
+    let thunderActive=false,stormActive=false;
 
-  function ensureAudio(){
-    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    if(audioCtx.state === "suspended") audioCtx.resume();
-  }
-  window.addEventListener('click', ensureAudio);
-  window.addEventListener('touchstart', ensureAudio);
+    const status=document.getElementById('status');
+    const sigmaIn=document.getElementById('sigma');
+    const rhoIn=document.getElementById('rho');
+    const betaIn=document.getElementById('beta');
+    const dtIn=document.getElementById('dt');
 
-  function init(){
-    const container = document.getElementById('container');
-    scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000000, 0.001);
-    camera = new THREE.PerspectiveCamera(45, container.clientWidth/container.clientHeight, 0.1, 5000);
-    camera.position.set(0,40,120);
-    renderer = new THREE.WebGLRenderer({antialias:true});
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    container.appendChild(renderer.domElement);
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    const hemi = new THREE.HemisphereLight(0x88ccff, 0x101020, 0.6);
-    scene.add(hemi);
-    const dir = new THREE.DirectionalLight(0xffffff,0.7);
-    dir.position.set(50,80,20);
-    scene.add(dir);
-    window.addEventListener('resize',()=>{
-      camera.aspect = container.clientWidth/container.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(container.clientWidth, container.clientHeight);
-    });
-    animate();
-  }
-
-  function computeLorenz(sigma,rho,beta,dt,N=20000){
-    let x=0.1,y=0,z=0;
-    const pts=new Float32Array(N*3), cols=new Float32Array(N*3);
-    const scale=3;
-    for(let i=0,j=0;i<N;i++,j+=3){
-      const dx=sigma*(y-x), dy=x*(rho-z)-y, dz=x*y-beta*z;
-      x+=dx*dt; y+=dy*dt; z+=dz*dt;
-      pts[j]=x*scale; pts[j+1]=y*scale; pts[j+2]=z*scale;
-      const c=new THREE.Color(`hsl(${(i/N)*360},100%,60%)`);
-      cols[j]=c.r; cols[j+1]=c.g; cols[j+2]=c.b;
+    function ensureAudio(){
+      if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+      if(audioCtx.state==="suspended") audioCtx.resume();
     }
-    return {pts,cols};
-  }
+    window.addEventListener('click',ensureAudio);
+    window.addEventListener('touchstart',ensureAudio);
 
-  function drawLorenz(){
-    const sigma=parseFloat(document.getElementById('sigma').value)||10;
-    const rho=parseFloat(document.getElementById('rho').value)||28;
-    const beta=parseFloat(document.getElementById('beta').value)||2.6667;
-    const dt=parseFloat(document.getElementById('dt').value)||0.01;
-    const {pts,cols}=computeLorenz(sigma,rho,beta,dt);
-    if(lorenzLine){ scene.remove(lorenzLine); }
-    const geo=new THREE.BufferGeometry();
-    geo.setAttribute('position',new THREE.BufferAttribute(pts,3));
-    geo.setAttribute('color',new THREE.BufferAttribute(cols,3));
-    const mat=new THREE.LineBasicMaterial({vertexColors:true,color:0xffffff,linewidth:2});
-    lorenzLine=new THREE.Line(geo,mat);
-    lorenzLine.position.set(0,-20,0);
-    scene.add(lorenzLine);
-    status.textContent="Durum: Simülasyon çiziliyor ✔️";
-    renderer.render(scene,camera);
-  }
+    function init(){
+      const container=document.getElementById('container');
+      scene=new THREE.Scene();
+      camera=new THREE.PerspectiveCamera(45,container.clientWidth/container.clientHeight,0.1,2000);
+      camera.position.set(0,0,200);
+      renderer=new THREE.WebGLRenderer({antialias:true});
+      renderer.setSize(container.clientWidth,container.clientHeight);
+      renderer.setClearColor(0x000000);
+      container.appendChild(renderer.domElement);
 
-  function createRain(){
-    const count=5000,pos=new Float32Array(count*3);
-    for(let i=0;i<count;i++){
-      pos[i*3]=(Math.random()-0.5)*400;
-      pos[i*3+1]=Math.random()*300;
-      pos[i*3+2]=(Math.random()-0.5)*400;
+      controls=new THREE.OrbitControls(camera,renderer.domElement);
+      const hemi=new THREE.HemisphereLight(0x88ccff,0x101020,0.6);
+      scene.add(hemi);
+      const dir=new THREE.DirectionalLight(0xffffff,0.8);
+      dir.position.set(50,80,20);
+      scene.add(dir);
+
+      window.addEventListener('resize',()=>{
+        camera.aspect=container.clientWidth/container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth,container.clientHeight);
+      });
+      animate();
     }
-    const geo=new THREE.BufferGeometry();
-    geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
-    const mat=new THREE.PointsMaterial({color:0x9ddfff,size:1.8});
-    rain=new THREE.Points(geo,mat);
-    scene.add(rain);
-  }
 
-  function updateRain(){
-    if(!rain) return;
-    const p=rain.geometry.attributes.position.array;
-    for(let i=0;i<p.length;i+=3){
-      p[i+1]-=6;
-      if(p[i+1]<-50) p[i+1]=250;
+    function computeLorenz(sigma,rho,beta,dt,N=20000){
+      let x=0.1,y=0,z=0;
+      const pts=new Float32Array(N*3),cols=new Float32Array(N*3);
+      for(let i=0,j=0;i<N;i++,j+=3){
+        const dx=sigma*(y-x),dy=x*(rho-z)-y,dz=x*y-beta*z;
+        x+=dx*dt;y+=dy*dt;z+=dz*dt;
+        pts[j]=x;pts[j+1]=y;pts[j+2]=z;
+        const c=new THREE.Color(`hsl(${(i/N)*360},100%,60%)`);
+        cols[j]=c.r;cols[j+1]=c.g;cols[j+2]=c.b;
+      }
+      return {pts,cols};
     }
-    rain.geometry.attributes.position.needsUpdate=true;
-  }
 
-  function playThunder(){
-    if(thunderActive) return;
-    ensureAudio(); thunderActive=true;
-    const len=audioCtx.sampleRate*2.2;
-    const buf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);
-    const d=buf.getChannelData(0);
-    for(let i=0;i<len;i++)
-      d[i]=(Math.random()*2-1)*Math.exp(-i/(audioCtx.sampleRate*1.2))*0.4;
-    const src=audioCtx.createBufferSource(); src.buffer=buf;
-    const lp=audioCtx.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=800;
-    src.connect(lp); lp.connect(audioCtx.destination); src.start();
-    flashLightning(); setTimeout(()=>thunderActive=false,2500);
-  }
+    function drawLorenz(){
+      const sigma=parseFloat(sigmaIn.value)||10;
+      const rho=parseFloat(rhoIn.value)||28;
+      const beta=parseFloat(betaIn.value)||2.6667;
+      const dt=parseFloat(dtIn.value)||0.01;
+      const {pts,cols}=computeLorenz(sigma,rho,beta,dt);
+      if(lorenzLine) scene.remove(lorenzLine);
 
-  function flashLightning(){
-    renderer.setClearColor(0xffffff);
-    setTimeout(()=>renderer.setClearColor(0x000000),200);
-  }
+      const geo=new THREE.BufferGeometry();
+      geo.setAttribute('position',new THREE.BufferAttribute(pts,3));
+      geo.setAttribute('color',new THREE.BufferAttribute(cols,3));
 
-  async function enableMic(){
-    try{
-      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-      micStream=stream; ensureAudio();
-      const src=audioCtx.createMediaStreamSource(stream);
-      micAnalyser=audioCtx.createAnalyser(); micAnalyser.fftSize=256;
-      src.connect(micAnalyser);
-      status.textContent="Durum: Mikrofon aktif (gürültü = fırtına)";
-    }catch(e){ status.textContent="Mikrofon reddedildi"; }
-  }
+      geo.computeBoundingBox();
+      const bb=geo.boundingBox;
+      const centerX=(bb.max.x+bb.min.x)/2;
+      const centerY=(bb.max.y+bb.min.y)/2;
+      const centerZ=(bb.max.z+bb.min.z)/2;
+      geo.translate(-centerX,-centerY,-centerZ); // ortalama merkeze al
 
-  document.getElementById('startBtn').onclick=drawLorenz;
-  document.getElementById('micBtn').onclick=enableMic;
+      const mat=new THREE.LineBasicMaterial({vertexColors:true,linewidth:2});
+      lorenzLine=new THREE.Line(geo,mat);
+      const scaleFactor=4; // sahneye göre ölçek
+      lorenzLine.scale.set(scaleFactor,scaleFactor,scaleFactor);
+      scene.add(lorenzLine);
+      status.textContent="Durum: Simülasyon aktif ✔️";
 
-  function animate(){
-    requestAnimationFrame(animate);
-    if(lorenzLine) lorenzLine.rotation.y+=0.002;
-    if(rain) updateRain();
-    if(micAnalyser){
-      const data=new Uint8Array(micAnalyser.frequencyBinCount);
-      micAnalyser.getByteFrequencyData(data);
-      const avg=data.reduce((a,b)=>a+b,0)/data.length;
-      if(avg>120){ if(!stormActive){ createRain(); stormActive=true; } playThunder(); }
+      if(rho>50&&!stormActive){playThunder();stormActive=true;}
+      renderer.render(scene,camera);
     }
-    renderer.render(scene,camera);
-  }
 
-  init();
+    function playThunder(){
+      ensureAudio();
+      if(thunderActive)return;thunderActive=true;
+      const len=audioCtx.sampleRate*2.2;
+      const buf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<len;i++)
+        d[i]=(Math.random()*2-1)*Math.exp(-i/(audioCtx.sampleRate*1.2))*0.4;
+      const src=audioCtx.createBufferSource();
+      src.buffer=buf;
+      const lp=audioCtx.createBiquadFilter();
+      lp.type="lowpass";lp.frequency.value=800;
+      src.connect(lp);lp.connect(audioCtx.destination);
+      src.start();
+      flashLightning();
+      setTimeout(()=>thunderActive=false,2500);
+    }
+
+    function flashLightning(){
+      renderer.setClearColor(0xffffff);
+      setTimeout(()=>renderer.setClearColor(0x000000),200);
+    }
+
+    async function enableMic(){
+      try{
+        const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+        ensureAudio();
+        const src=audioCtx.createMediaStreamSource(stream);
+        micAnalyser=audioCtx.createAnalyser();
+        micAnalyser.fftSize=256;
+        src.connect(micAnalyser);
+        status.textContent="Durum: Mikrofon aktif (yüksek ses = fırtına)";
+      }catch(e){
+        status.textContent="Mikrofon reddedildi";
+      }
+    }
+
+    document.getElementById('micBtn').onclick=enableMic;
+    [sigmaIn,rhoIn,betaIn,dtIn].forEach(el=>el.addEventListener('input',drawLorenz));
+
+    function animate(){
+      requestAnimationFrame(animate);
+      if(lorenzLine) lorenzLine.rotation.y+=0.002;
+      if(micAnalyser){
+        const data=new Uint8Array(micAnalyser.frequencyBinCount);
+        micAnalyser.getByteFrequencyData(data);
+        const avg=data.reduce((a,b)=>a+b,0)/data.length;
+        if(avg>120){playThunder();}
+      }
+      renderer.render(scene,camera);
+    }
+
+    init();
+    drawLorenz();
   </script>
 </body>
 </html>
