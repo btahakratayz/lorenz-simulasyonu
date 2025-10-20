@@ -3,75 +3,38 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Kaos Teorisi – Lorenz Simülasyonu</title>
+  <title>Kaos Teorisi — Lorenz Simülasyonu</title>
   <style>
     body {
-      margin: 0;
-      background: #000;
-      color: #e6f7ff;
+      margin: 0; background: #000; color: #e6f7ff;
       font-family: "Segoe UI", sans-serif;
-      display: flex;
-      flex-direction: row;
-      height: 100vh;
-      overflow: hidden;
-      padding: 16px;
-      gap: 16px;
+      display: flex; flex-direction: row; height: 100vh;
+      overflow: hidden; padding: 16px; gap: 16px;
     }
     .panel {
-      width: 300px;
-      background: rgba(15, 15, 30, 0.8);
-      border-radius: 12px;
-      padding: 14px;
-      backdrop-filter: blur(6px);
+      width: 300px; background: rgba(15,15,30,0.85);
+      border-radius: 12px; padding: 14px; backdrop-filter: blur(6px);
     }
-    h1 {
-      font-size: 18px;
-      margin: 0 0 6px;
-      color: #00d4ff;
-    }
+    h1 { font-size: 18px; margin: 0 0 6px; color: #00d4ff; }
     label { display: block; margin-top: 10px; font-size: 13px; }
     input {
-      width: 100%;
-      margin-top: 4px;
-      background: rgba(255, 255, 255, 0.05);
-      color: white;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      padding: 5px;
-      border-radius: 5px;
+      width: 100%; margin-top: 4px; background: rgba(255,255,255,0.05);
+      color: white; border: 1px solid rgba(255,255,255,0.1);
+      padding: 5px; border-radius: 5px;
     }
     button {
-      margin-top: 10px;
-      background: linear-gradient(180deg, #00d4ff, #0288a7);
-      border: none;
-      color: #001;
-      padding: 8px 10px;
-      font-weight: bold;
-      border-radius: 6px;
-      cursor: pointer;
-      width: 100%;
+      margin-top: 10px; background: linear-gradient(180deg,#00d4ff,#0288a7);
+      border: none; color: #001; padding: 8px 10px; font-weight: bold;
+      border-radius: 6px; cursor: pointer; width: 100%;
     }
-    #container {
-      flex: 1;
-      position: relative;
-      border-radius: 12px;
-      overflow: hidden;
-    }
+    #container { flex: 1; position: relative; border-radius: 12px; overflow: hidden; }
     canvas { display: block; }
-    .status {
-      font-size: 13px;
-      color: #a9dfff;
-      margin-top: 8px;
-    }
+    .status { font-size: 13px; color: #a9dfff; margin-top: 8px; }
     .hint {
-      position: absolute;
-      left: 18px;
-      bottom: 18px;
-      color: rgba(255,255,255,0.8);
-      font-size: 13px;
-      background: rgba(0,0,0,0.25);
-      padding: 8px 12px;
-      border-radius: 8px;
-      backdrop-filter: blur(4px);
+      position: absolute; left: 18px; bottom: 18px;
+      color: rgba(255,255,255,0.8); font-size: 13px;
+      background: rgba(0,0,0,0.25); padding: 8px 12px;
+      border-radius: 8px; backdrop-filter: blur(4px);
     }
   </style>
 </head>
@@ -94,221 +57,160 @@
       <input id="dt" type="number" value="0.01" step="0.001">
     </label>
     <button id="startBtn">Simülasyonu Başlat</button>
-    <button id="stormBtn">Kasırga Manuel</button>
-    <button id="micBtn">Mikrofon: Aç</button>
+    <button id="micBtn">Mikrofonu Etkinleştir</button>
     <div class="status" id="status">Durum: Bekleniyor</div>
   </div>
 
   <div id="container">
-    <div class="hint">Dokun / Tıkla → Ses aktif olur • Mikrofon yüksekse fırtına başlar ⚡</div>
+    <div class="hint">Ekrana dokun / tıkla: Ses aktif olur • Gürültü = Fırtına ⚡</div>
   </div>
 
-  <script type="module">
-    import * as THREE from 'https://unpkg.com/three@0.152.2/build/three.module.js';
-    import { OrbitControls } from 'https://unpkg.com/three@0.152.2/examples/jsm/controls/OrbitControls.js';
+  <!-- Three.js klasik import -->
+  <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
 
+  <script>
+  let scene, camera, renderer, controls;
+  let lorenzLine = null, rain = null, audioCtx = null;
+  let micAnalyser = null, micStream = null;
+  let thunderActive = false;
+  let stormActive = false;
+
+  const status = document.getElementById('status');
+
+  function ensureAudio(){
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === "suspended") audioCtx.resume();
+  }
+  window.addEventListener('click', ensureAudio);
+  window.addEventListener('touchstart', ensureAudio);
+
+  function init(){
     const container = document.getElementById('container');
-    const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x000000, 0.0008);
-
-    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 5000);
-    camera.position.set(0, 40, 120);
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x000000, 0.001);
+    camera = new THREE.PerspectiveCamera(45, container.clientWidth/container.clientHeight, 0.1, 5000);
+    camera.position.set(0,40,120);
+    renderer = new THREE.WebGLRenderer({antialias:true});
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
-
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
 
     const hemi = new THREE.HemisphereLight(0x88ccff, 0x101020, 0.6);
     scene.add(hemi);
-    const mainLight = new THREE.DirectionalLight(0xffffff, 0.6);
-    mainLight.position.set(50,80,20);
-    scene.add(mainLight);
+    const dir = new THREE.DirectionalLight(0xffffff,0.7);
+    dir.position.set(50,80,20);
+    scene.add(dir);
 
-    let lorenzLine = null;
-    let rainParticles = null;
-    let audioCtx = null;
-    let rainSound = null;
-    let micAnalyser = null;
-    let micStream = null;
-    let thunderActive = false;
-    let stormActive = false;
-
-    const sigmaIn = document.getElementById('sigma');
-    const rhoIn = document.getElementById('rho');
-    const betaIn = document.getElementById('beta');
-    const dtIn = document.getElementById('dt');
-    const status = document.getElementById('status');
-
-    function ensureAudio() {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
-    }
-    window.addEventListener('click', ensureAudio);
-    window.addEventListener('touchstart', ensureAudio);
-
-    function computeLorenz(sigma, rho, beta, dt, N = 20000) {
-      let x = 0.1, y = 0, z = 0;
-      const pts = new Float32Array(N * 3);
-      const cols = new Float32Array(N * 3);
-      for (let i = 0, j = 0; i < N; i++, j += 3) {
-        const dx = sigma * (y - x);
-        const dy = x * (rho - z) - y;
-        const dz = x * y - beta * z;
-        x += dx * dt; y += dy * dt; z += dz * dt;
-        pts[j] = x; pts[j+1] = y; pts[j+2] = z;
-        const color = new THREE.Color(`hsl(${(i / N) * 360}, 100%, 60%)`);
-        cols[j] = color.r; cols[j+1] = color.g; cols[j+2] = color.b;
-      }
-      return { pts, cols };
-    }
-
-    function drawLorenz(sigma, rho, beta, dt) {
-      const { pts, cols } = computeLorenz(sigma, rho, beta, dt);
-      if (lorenzLine) scene.remove(lorenzLine);
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.BufferAttribute(pts, 3));
-      geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
-      const mat = new THREE.LineBasicMaterial({ vertexColors: true });
-      lorenzLine = new THREE.Line(geo, mat);
-      scene.add(lorenzLine);
-    }
-
-    function createRain() {
-      const count = 5000;
-      const pos = new Float32Array(count * 3);
-      for (let i = 0; i < count; i++) {
-        pos[i*3] = (Math.random() - 0.5) * 400;
-        pos[i*3+1] = Math.random() * 300;
-        pos[i*3+2] = (Math.random() - 0.5) * 400;
-      }
-      const geo = new THREE.BufferGeometry();
-      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      const mat = new THREE.PointsMaterial({ color: 0x9ddfff, size: 1.8, transparent: true });
-      rainParticles = new THREE.Points(geo, mat);
-      scene.add(rainParticles);
-    }
-
-    function updateRain() {
-      if (!rainParticles) return;
-      const pos = rainParticles.geometry.attributes.position.array;
-      for (let i = 0; i < pos.length; i += 3) {
-        pos[i+1] -= 6;
-        if (pos[i+1] < -50) pos[i+1] = 250;
-      }
-      rainParticles.geometry.attributes.position.needsUpdate = true;
-    }
-
-    function playRainSound() {
-      ensureAudio();
-      const bufferSize = 2 * audioCtx.sampleRate;
-      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-      const output = noiseBuffer.getChannelData(0);
-      for (let i = 0; i < bufferSize; i++) output[i] = (Math.random() * 2 - 1) * 0.2;
-      const noiseSource = audioCtx.createBufferSource();
-      noiseSource.buffer = noiseBuffer;
-      noiseSource.loop = true;
-      const filter = audioCtx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.value = 1000;
-      const gain = audioCtx.createGain();
-      gain.gain.value = 0.3;
-      noiseSource.connect(filter);
-      filter.connect(gain);
-      gain.connect(audioCtx.destination);
-      noiseSource.start();
-      rainSound = noiseSource;
-    }
-
-    function playThunder() {
-      if (thunderActive) return;
-      ensureAudio();
-      thunderActive = true;
-      const len = audioCtx.sampleRate * 2.2;
-      const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i=0; i<len; i++) d[i] = (Math.random()*2-1)*Math.exp(-i/(audioCtx.sampleRate*1.2))*0.4;
-      const rumble = audioCtx.createBufferSource();
-      rumble.buffer = buf;
-      const lp = audioCtx.createBiquadFilter();
-      lp.type = 'lowpass';
-      lp.frequency.value = 800;
-      rumble.connect(lp);
-      lp.connect(audioCtx.destination);
-      rumble.start();
-      flashLightning();
-      setTimeout(()=> thunderActive=false, 2500);
-    }
-
-    function flashLightning() {
-      mainLight.intensity = 5 + Math.random()*5;
-      container.style.backgroundColor = 'rgba(255,255,255,0.15)';
-      setTimeout(()=>{
-        mainLight.intensity = 0.6;
-        container.style.backgroundColor = 'transparent';
-      }, 200 + Math.random()*300);
-    }
-
-    function activateStorm() {
-      if (!stormActive) {
-        playRainSound();
-        createRain();
-        stormActive = true;
-        status.textContent = "Durum: Fırtına etkin (mikrofonla tetiklenebilir)";
-      }
-    }
-
-    async function enableMic() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        micStream = stream;
-        ensureAudio();
-        const source = audioCtx.createMediaStreamSource(stream);
-        micAnalyser = audioCtx.createAnalyser();
-        source.connect(micAnalyser);
-        micAnalyser.fftSize = 256;
-        status.textContent = "Durum: Mikrofon açık (yüksek ses = fırtına)";
-      } catch (e) {
-        status.textContent = "Mikrofon erişimi reddedildi";
-      }
-    }
-
-    document.getElementById('startBtn').addEventListener('click', ()=>{
-      ensureAudio();
-      drawLorenz(parseFloat(sigmaIn.value), parseFloat(rhoIn.value), parseFloat(betaIn.value), parseFloat(dtIn.value));
-      status.textContent = "Durum: Simülasyon çalışıyor";
-    });
-
-    document.getElementById('stormBtn').addEventListener('click', activateStorm);
-    document.getElementById('micBtn').addEventListener('click', enableMic);
-
-    function animate() {
-      requestAnimationFrame(animate);
-      if (lorenzLine) lorenzLine.rotation.y += 0.002;
-      if (rainParticles && stormActive) updateRain();
-      controls.update();
-
-      if (micAnalyser && !thunderActive) {
-        const data = new Uint8Array(micAnalyser.frequencyBinCount);
-        micAnalyser.getByteFrequencyData(data);
-        const avg = data.reduce((a,b)=>a+b,0)/data.length;
-        if (avg > 120) {
-          activateStorm();
-          playThunder();
-        }
-      }
-
-      renderer.render(scene, camera);
-    }
-    animate();
-
-    window.addEventListener('resize', ()=>{
-      camera.aspect = container.clientWidth / container.clientHeight;
+    window.addEventListener('resize',()=>{
+      camera.aspect = container.clientWidth/container.clientHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(container.clientWidth, container.clientHeight);
     });
+
+    animate();
+  }
+
+  function computeLorenz(sigma,rho,beta,dt,N=20000){
+    let x=0.1,y=0,z=0;
+    const pts=new Float32Array(N*3), cols=new Float32Array(N*3);
+    for(let i=0,j=0;i<N;i++,j+=3){
+      const dx=sigma*(y-x), dy=x*(rho-z)-y, dz=x*y-beta*z;
+      x+=dx*dt; y+=dy*dt; z+=dz*dt;
+      pts[j]=x; pts[j+1]=y; pts[j+2]=z;
+      const c=new THREE.Color(`hsl(${(i/N)*360},100%,60%)`);
+      cols[j]=c.r; cols[j+1]=c.g; cols[j+2]=c.b;
+    }
+    return {pts,cols};
+  }
+
+  function drawLorenz(){
+    const sigma=parseFloat(document.getElementById('sigma').value)||10;
+    const rho=parseFloat(document.getElementById('rho').value)||28;
+    const beta=parseFloat(document.getElementById('beta').value)||2.6667;
+    const dt=parseFloat(document.getElementById('dt').value)||0.01;
+    const {pts,cols}=computeLorenz(sigma,rho,beta,dt);
+    if(lorenzLine){ scene.remove(lorenzLine); }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(pts,3));
+    geo.setAttribute('color',new THREE.BufferAttribute(cols,3));
+    const mat=new THREE.LineBasicMaterial({vertexColors:true});
+    lorenzLine=new THREE.Line(geo,mat);
+    scene.add(lorenzLine);
+    status.textContent="Durum: Simülasyon çalışıyor";
+  }
+
+  function createRain(){
+    const count=5000,pos=new Float32Array(count*3);
+    for(let i=0;i<count;i++){
+      pos[i*3]=(Math.random()-0.5)*400;
+      pos[i*3+1]=Math.random()*300;
+      pos[i*3+2]=(Math.random()-0.5)*400;
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    const mat=new THREE.PointsMaterial({color:0x9ddfff,size:1.8});
+    rain=new THREE.Points(geo,mat);
+    scene.add(rain);
+  }
+
+  function updateRain(){
+    if(!rain) return;
+    const p=rain.geometry.attributes.position.array;
+    for(let i=0;i<p.length;i+=3){
+      p[i+1]-=6;
+      if(p[i+1]<-50) p[i+1]=250;
+    }
+    rain.geometry.attributes.position.needsUpdate=true;
+  }
+
+  function playThunder(){
+    if(thunderActive) return;
+    ensureAudio(); thunderActive=true;
+    const len=audioCtx.sampleRate*2.2;
+    const buf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<len;i++)
+      d[i]=(Math.random()*2-1)*Math.exp(-i/(audioCtx.sampleRate*1.2))*0.4;
+    const src=audioCtx.createBufferSource(); src.buffer=buf;
+    const lp=audioCtx.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=800;
+    src.connect(lp); lp.connect(audioCtx.destination); src.start();
+    flashLightning(); setTimeout(()=>thunderActive=false,2500);
+  }
+
+  function flashLightning(){
+    renderer.setClearColor(0xffffff);
+    setTimeout(()=>renderer.setClearColor(0x000000),200);
+  }
+
+  async function enableMic(){
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      micStream=stream; ensureAudio();
+      const src=audioCtx.createMediaStreamSource(stream);
+      micAnalyser=audioCtx.createAnalyser(); micAnalyser.fftSize=256;
+      src.connect(micAnalyser);
+      status.textContent="Durum: Mikrofon aktif (gürültü = fırtına)";
+    }catch(e){ status.textContent="Mikrofon reddedildi"; }
+  }
+
+  document.getElementById('startBtn').onclick=drawLorenz;
+  document.getElementById('micBtn').onclick=enableMic;
+
+  function animate(){
+    requestAnimationFrame(animate);
+    if(lorenzLine) lorenzLine.rotation.y+=0.002;
+    if(rain) updateRain();
+    if(micAnalyser){
+      const data=new Uint8Array(micAnalyser.frequencyBinCount);
+      micAnalyser.getByteFrequencyData(data);
+      const avg=data.reduce((a,b)=>a+b,0)/data.length;
+      if(avg>120){ if(!stormActive){ createRain(); stormActive=true; } playThunder(); }
+    }
+    renderer.render(scene,camera);
+  }
+
+  init();
   </script>
 </body>
 </html>
