@@ -62,7 +62,7 @@
   </div>
 
   <div id="container">
-    <div class="hint">Ekrana dokun / tıkla: Ses aktif olur • Gürültü = Fırtına ⚡</div>
+    <div class="hint">Dokun veya tıkla → Ses aktif olur • Gürültü = Fırtına ⚡</div>
   </div>
 
   <!-- Three.js klasik import -->
@@ -75,7 +75,6 @@
   let micAnalyser = null, micStream = null;
   let thunderActive = false;
   let stormActive = false;
-
   const status = document.getElementById('status');
 
   function ensureAudio(){
@@ -95,29 +94,27 @@
     renderer.setSize(container.clientWidth, container.clientHeight);
     container.appendChild(renderer.domElement);
     controls = new THREE.OrbitControls(camera, renderer.domElement);
-
     const hemi = new THREE.HemisphereLight(0x88ccff, 0x101020, 0.6);
     scene.add(hemi);
     const dir = new THREE.DirectionalLight(0xffffff,0.7);
     dir.position.set(50,80,20);
     scene.add(dir);
-
     window.addEventListener('resize',()=>{
       camera.aspect = container.clientWidth/container.clientHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(container.clientWidth, container.clientHeight);
     });
-
     animate();
   }
 
   function computeLorenz(sigma,rho,beta,dt,N=20000){
     let x=0.1,y=0,z=0;
     const pts=new Float32Array(N*3), cols=new Float32Array(N*3);
+    const scale=3;
     for(let i=0,j=0;i<N;i++,j+=3){
       const dx=sigma*(y-x), dy=x*(rho-z)-y, dz=x*y-beta*z;
       x+=dx*dt; y+=dy*dt; z+=dz*dt;
-      pts[j]=x; pts[j+1]=y; pts[j+2]=z;
+      pts[j]=x*scale; pts[j+1]=y*scale; pts[j+2]=z*scale;
       const c=new THREE.Color(`hsl(${(i/N)*360},100%,60%)`);
       cols[j]=c.r; cols[j+1]=c.g; cols[j+2]=c.b;
     }
@@ -134,10 +131,12 @@
     const geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.BufferAttribute(pts,3));
     geo.setAttribute('color',new THREE.BufferAttribute(cols,3));
-    const mat=new THREE.LineBasicMaterial({vertexColors:true});
+    const mat=new THREE.LineBasicMaterial({vertexColors:true,color:0xffffff,linewidth:2});
     lorenzLine=new THREE.Line(geo,mat);
+    lorenzLine.position.set(0,-20,0);
     scene.add(lorenzLine);
-    status.textContent="Durum: Simülasyon çalışıyor";
+    status.textContent="Durum: Simülasyon çiziliyor ✔️";
+    renderer.render(scene,camera);
   }
 
   function createRain(){
