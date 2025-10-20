@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kaos Teoremi ve Hava Tahmini - Etkileşimli Lorenz Simülasyonu</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f5f6fa;
+      color: #2f3640;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    header {
+      background: linear-gradient(135deg, #273c75, #192a56);
+      color: white;
+      width: 100%;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    h1 { margin: 0; }
+    section.intro {
+      max-width: 900px;
+      margin: 20px auto;
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      line-height: 1.6;
+    }
+    section.controls {
+      background: #dcdde1;
+      border-radius: 10px;
+      padding: 15px;
+      margin: 10px 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+    label {
+      font-weight: bold;
+    }
+    input {
+      width: 70px;
+      padding: 5px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+    button {
+      background: #44bd32;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover { background: #4cd137; }
+    canvas { background: white; border: 1px solid #ccc; border-radius: 8px; }
+    footer {
+      margin: 20px;
+      text-align: center;
+      color: #718093;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Kaos Teoremi ve Hava Tahmini</h1>
+    <p>Etkileşimli Lorenz Simülasyonu</p>
+  </header>
+
+  <section class="intro">
+    <h2>Kaos Teoremi Nedir?</h2>
+    <p>
+      Kaos Teoremi, deterministik sistemlerde bile öngörülemezliğin ortaya çıkabileceğini söyler. 
+      Küçük başlangıç farkları, zamanla çok büyük değişikliklere yol açabilir. 
+      Bu durum "Kelebek Etkisi" olarak bilinir. Edward Lorenz’in hava tahmini modellerinde keşfettiği bu olgu, 
+      doğadaki karmaşık düzenin altında gizli bir matematiksel yapının bulunduğunu gösterir.
+    </p>
+    <p>
+      Aşağıdaki etkileşimli simülasyonda Lorenz sistemi olarak bilinen basit bir atmosfer modelinin davranışını gözlemleyebilirsiniz. 
+      Parametreleri değiştirerek sistemin nasıl kaotik hale geldiğini kendiniz deneyin!
+    </p>
+  </section>
+
+  <section class="controls">
+    <label for="sigma">σ (sigma):</label>
+    <input id="sigma" type="number" value="10" step="0.1">
+    <label for="rho">ρ (rho):</label>
+    <input id="rho" type="number" value="28" step="0.1">
+    <label for="beta">β (beta):</label>
+    <input id="beta" type="number" value="2.6667" step="0.1">
+    <button onclick="startSimulation()">Simülasyonu Başlat</button>
+  </section>
+
+  <canvas id="lorenzCanvas" width="700" height="500"></canvas>
+
+  <footer>
+    <p>Hazırlayan: <strong>Taha Karatay</strong> | Danışman: <strong>Doç. Dr. Yasemin Soylu</strong></p>
+  </footer>
+
+  <script>
+    const canvas = document.getElementById('lorenzCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function startSimulation() {
+      const sigma = parseFloat(document.getElementById('sigma').value);
+      const rho = parseFloat(document.getElementById('rho').value);
+      const beta = parseFloat(document.getElementById('beta').value);
+
+      let x = 0.1, y = 0, z = 0;
+      let dt = 0.01;
+      let points = [];
+
+      for (let i = 0; i < 10000; i++) {
+        let dx = sigma * (y - x);
+        let dy = x * (rho - z) - y;
+        let dz = x * y - beta * z;
+
+        x += dx * dt;
+        y += dy * dt;
+        z += dz * dt;
+
+        points.push({x, y, z});
+      }
+
+      drawLorenz(points);
+    }
+
+    function drawLorenz(points) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.beginPath();
+      let scale = 10;
+      for (let i = 0; i < points.length; i++) {
+        let px = canvas.width/2 + points[i].x * scale;
+        let py = canvas.height/2 - points[i].z * scale;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.strokeStyle = '#e84118';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  </script>
+</body>
+</html>
