@@ -61,23 +61,23 @@
     <div class="note">
       🔹 Görüntü için önerilen değerler:<br>
       σ = 10, ρ = 28, β = 2.6667, dt = 0.01<br>
-      🔹 ρ değerini 50 ve üstü yaparsanız fırtına + gök gürültüsü devreye girer.<br>
-      🔹 Mikrofona izin verirseniz yüksek ses/alkış da fırtına tetikler.<br>
-      🔹 Değerleri değiştirdiğinizde simülasyon otomatik güncellenir.
+      🔹 Fırtına sesi otomatik başlar, mikrofon opsiyoneldir.<br>
+      🔹 Değerleri değiştirince simülasyon otomatik güncellenir.<br>
+      🔹 ρ > 50 veya yüksek ses → Şimşek + gök gürültüsü ⚡
     </div>
   </div>
 
   <div id="container">
-    <div class="hint">Dokun / tıkla → Ses aktif olur • Gürültü = Fırtına ⚡</div>
+    <div class="hint">Dokun / tıkla → Ses aktif olur • Fırtına devam eder ⚡</div>
   </div>
 
   <script src="https://unpkg.com/three@0.152.2/build/three.min.js"></script>
   <script src="https://unpkg.com/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
   <script>
     let scene,camera,renderer,controls,lorenzLine=null,audioCtx=null,micAnalyser=null;
-    let thunderActive=false,stormActive=false;
-
+    let thunderActive=false,windSource=null,windGain=null,thunderTimer=null;
     const status=document.getElementById('status');
+
     const sigmaIn=document.getElementById('sigma');
     const rhoIn=document.getElementById('rho');
     const betaIn=document.getElementById('beta');
@@ -86,9 +86,80 @@
     function ensureAudio(){
       if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)();
       if(audioCtx.state==="suspended") audioCtx.resume();
+      if(!windSource){ startAmbientSound(); }
     }
+
     window.addEventListener('click',ensureAudio);
     window.addEventListener('touchstart',ensureAudio);
+
+    function startAmbientSound(){
+      // Rüzgar sesi üretimi (beyaz gürültü)
+      const buffer=audioCtx.createBuffer(1,audioCtx.sampleRate*2,audioCtx.sampleRate);
+      const data=buffer.getChannelData(0);
+      for(let i=0;i<data.length;i++){ data[i]=Math.random()*2-1; }
+
+      windSource=audioCtx.createBufferSource();
+      windSource.buffer=buffer;
+      windSource.loop=true;
+
+      const filter=audioCtx.createBiquadFilter();
+      filter.type="lowpass";
+      filter.frequency.value=400+Math.random()*400;
+
+      windGain=audioCtx.createGain();
+      windGain.gain.value=0.2;
+
+      windSource.connect(filter);
+      filter.connect(windGain);
+      windGain.connect(audioCtx.destination);
+      windSource.start();
+
+      // Gök gürültüsünü periyodik başlat
+      thunderTimer=setInterval(()=>{ playThunder(); },10000+Math.random()*5000);
+    }
+
+    function playThunder(){
+      if(!audioCtx)return;
+      if(thunderActive)return;
+      thunderActive=true;
+      const len=audioCtx.sampleRate*2.2;
+      const buf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);
+      const d=buf.getChannelData(0);
+      for(let i=0;i<len;i++){
+        d[i]=(Math.random()*2-1)*Math.exp(-i/(audioCtx.sampleRate*1.2))*0.4;
+      }
+      const src=audioCtx.createBufferSource();
+      src.buffer=buf;
+      const lp=audioCtx.createBiquadFilter();
+      lp.type="lowpass";
+      lp.frequency.value=800;
+      src.connect(lp);
+      lp.connect(audioCtx.destination);
+      src.start();
+      flashLightning();
+      setTimeout(()=>thunderActive=false,2500);
+    }
+
+    function flashLightning(){
+      renderer.setClearColor(0xffffff);
+      setTimeout(()=>renderer.setClearColor(0x000000),200);
+    }
+
+    async function enableMic(){
+      try{
+        const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+        ensureAudio();
+        const src=audioCtx.createMediaStreamSource(stream);
+        micAnalyser=audioCtx.createAnalyser();
+        micAnalyser.fftSize=256;
+        src.connect(micAnalyser);
+        status.textContent="Durum: Mikrofon aktif (yüksek ses = ek şimşek)";
+      }catch(e){
+        status.textContent="Mikrofon reddedildi";
+      }
+    }
+
+    document.getElementById('micBtn').onclick=enableMic;
 
     function init(){
       const container=document.getElementById('container');
@@ -139,63 +210,21 @@
       const geo=new THREE.BufferGeometry();
       geo.setAttribute('position',new THREE.BufferAttribute(pts,3));
       geo.setAttribute('color',new THREE.BufferAttribute(cols,3));
-
       geo.computeBoundingBox();
       const bb=geo.boundingBox;
       const centerX=(bb.max.x+bb.min.x)/2;
       const centerY=(bb.max.y+bb.min.y)/2;
       const centerZ=(bb.max.z+bb.min.z)/2;
-      geo.translate(-centerX,-centerY,-centerZ); // ortalama merkeze al
+      geo.translate(-centerX,-centerY,-centerZ);
 
       const mat=new THREE.LineBasicMaterial({vertexColors:true,linewidth:2});
       lorenzLine=new THREE.Line(geo,mat);
-      const scaleFactor=4; // sahneye göre ölçek
-      lorenzLine.scale.set(scaleFactor,scaleFactor,scaleFactor);
+      lorenzLine.scale.set(4,4,4);
       scene.add(lorenzLine);
       status.textContent="Durum: Simülasyon aktif ✔️";
-
-      if(rho>50&&!stormActive){playThunder();stormActive=true;}
       renderer.render(scene,camera);
     }
 
-    function playThunder(){
-      ensureAudio();
-      if(thunderActive)return;thunderActive=true;
-      const len=audioCtx.sampleRate*2.2;
-      const buf=audioCtx.createBuffer(1,len,audioCtx.sampleRate);
-      const d=buf.getChannelData(0);
-      for(let i=0;i<len;i++)
-        d[i]=(Math.random()*2-1)*Math.exp(-i/(audioCtx.sampleRate*1.2))*0.4;
-      const src=audioCtx.createBufferSource();
-      src.buffer=buf;
-      const lp=audioCtx.createBiquadFilter();
-      lp.type="lowpass";lp.frequency.value=800;
-      src.connect(lp);lp.connect(audioCtx.destination);
-      src.start();
-      flashLightning();
-      setTimeout(()=>thunderActive=false,2500);
-    }
-
-    function flashLightning(){
-      renderer.setClearColor(0xffffff);
-      setTimeout(()=>renderer.setClearColor(0x000000),200);
-    }
-
-    async function enableMic(){
-      try{
-        const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-        ensureAudio();
-        const src=audioCtx.createMediaStreamSource(stream);
-        micAnalyser=audioCtx.createAnalyser();
-        micAnalyser.fftSize=256;
-        src.connect(micAnalyser);
-        status.textContent="Durum: Mikrofon aktif (yüksek ses = fırtına)";
-      }catch(e){
-        status.textContent="Mikrofon reddedildi";
-      }
-    }
-
-    document.getElementById('micBtn').onclick=enableMic;
     [sigmaIn,rhoIn,betaIn,dtIn].forEach(el=>el.addEventListener('input',drawLorenz));
 
     function animate(){
